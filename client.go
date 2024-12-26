@@ -52,7 +52,7 @@ func main() {
 	fmt.Println("To broadcast: [all] message")
 	fmt.Println("To quit: quit\n")
 
-	// Gelen mesajları dinlemek için goroutine
+	// goroutine to listen to incoming messages
 	go func() {
 		scanner := bufio.NewScanner(conn)
 		for scanner.Scan() {
@@ -60,11 +60,12 @@ func main() {
 		}
 	}()
 
-	// Mesaj gönderme
+	// Sending massage
 	for {
 		message, _ := reader.ReadString('\n')
 		message = strings.TrimSpace(message)
 
+		//quit from server when users write quit
 		if message == "quit" {
 			return
 		}

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Bağlı kullanıcıları takip etmek için global değişkenler
+// Global variables to keep track of connected users
 var (
 	clients      = make(map[string]net.Conn)
 	clientsMutex sync.RWMutex
@@ -29,7 +29,7 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	// 20 sn kullanıcı listesini duyur
+	// Announce an online user list every 30 seconds
 	go func() {
 		for {
 			time.Sleep(30 * time.Second)
@@ -53,16 +53,16 @@ func main() {
 	}
 }
 
-// Bağlı kullanıcıları listeleyen ve duyuran fonksiyon
+// Function that lists and announces connected users
 func listConnectedClients() {
 	clientsMutex.RLock()
-	// Kullanıcı listesini oluştur
+	// Creating online users listK
 	userList := "\nOnline Users:\n"
 	for username := range clients {
 		userList += fmt.Sprintf("🟢 %s\n", username)
 	}
 
-	// Her kullanıcıya listeyi gönder
+	// Sending a list of online users to online users
 	for _, conn := range clients {
 		conn.Write([]byte(userList))
 	}
@@ -98,12 +98,12 @@ func handleClient(conn net.Conn) {
 		}
 	}
 
-	// Sadece bağlantı bilgisi göster
+	// showing connection info only
 	fmt.Printf("User connected: %s (%s)\n", username, conn.RemoteAddr().String())
 
 	clientsMutex.Lock()
 	clients[username] = conn
-	// Yeni kullanıcı bağlandığında diğer kullanıcılara duyur
+	// Announce to other users when a new user connects
 	connectMsg := fmt.Sprintf("\n🟢 %s joined the chat\n", username)
 	for user, client := range clients {
 		if user != username {
@@ -116,7 +116,7 @@ func handleClient(conn net.Conn) {
 	for scanner.Scan() {
 		message := scanner.Text()
 
-		// Mesaj kontrolü
+		// Message control
 		if strings.HasPrefix(message, "[") && strings.Contains(message, "]") {
 			endIndex := strings.Index(message, "]")
 			if endIndex > 1 {
@@ -124,19 +124,19 @@ func handleClient(conn net.Conn) {
 				content := strings.TrimSpace(message[endIndex+1:])
 
 				if targetUser == "all" {
-					// Broadcast mesajı - tüm kullanıcılara gönder
+					// Send a broadcast message to all users
 					broadcastMsg := fmt.Sprintf("\n[Broadcast from %s]: %s\n", username, content)
 					clientsMutex.RLock()
 					for recipient, recipientConn := range clients {
-						if recipient != username { // Kendisine gönderme
+						if recipient != username { // don't send a broadcast message to sender
 							recipientConn.Write([]byte(broadcastMsg))
 						}
 					}
 					clientsMutex.RUnlock()
-					// Gönderene onay
+					// Confirmation message to the sender
 					conn.Write([]byte("\n✓ Broadcast sent\n"))
 				} else {
-					// Normal DM işlemi
+					// Normal DM stuff
 					clientsMutex.RLock()
 					targetConn, exists := clients[targetUser]
 					clientsMutex.RUnlock()
@@ -151,13 +151,12 @@ func handleClient(conn net.Conn) {
 				}
 			}
 		}
-		// Normal mesajları işleme almıyoruz (sadece DM'ler çalışacak)
 	}
 
-	// Kullanıcı çıkış yaptığında
+	// Message that appears on the server when the user logs out
 	fmt.Printf("User %s disconnected.\n", username)
 	clientsMutex.Lock()
-	// Kullanıcı çıkış yaptığında diğer kullanıcılara duyur
+	// Notify other users when user logs out
 	disconnectMsg := fmt.Sprintf("\n🔴 %s left the chat\n", username)
 	for user, client := range clients {
 		if user != username {
