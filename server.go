@@ -29,10 +29,10 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	// 10 saniyede bir bağlı kullanıcıları listele
+	// 20 sn kullanıcı listesini duyur
 	go func() {
 		for {
-			time.Sleep(10 * time.Second)
+			time.Sleep(30 * time.Second)
 			listConnectedClients()
 		}
 	}()
@@ -53,16 +53,20 @@ func main() {
 	}
 }
 
-// Bağlı kullanıcıları listeleyen fonksiyon
+// Bağlı kullanıcıları listeleyen ve duyuran fonksiyon
 func listConnectedClients() {
 	clientsMutex.RLock()
-	defer clientsMutex.RUnlock()
-
-	fmt.Println("\nBağlı kullanıcılar:")
+	// Kullanıcı listesini oluştur
+	userList := "\nOnline Users:\n"
 	for username := range clients {
-		fmt.Printf("- %s\n", username)
+		userList += fmt.Sprintf("🟢 %s\n", username)
 	}
-	fmt.Printf("Toplam kullanıcı sayısı: %d\n", len(clients))
+
+	// Her kullanıcıya listeyi gönder
+	for _, conn := range clients {
+		conn.Write([]byte(userList))
+	}
+	clientsMutex.RUnlock()
 }
 
 // Handle each client connection
@@ -82,6 +86,13 @@ func handleClient(conn net.Conn) {
 
 	clientsMutex.Lock()
 	clients[username] = conn
+	// Yeni kullanıcı bağlandığında diğer kullanıcılara duyur
+	connectMsg := fmt.Sprintf("\n🟢 %s joined the chat\n", username)
+	for user, client := range clients {
+		if user != username {
+			client.Write([]byte(connectMsg))
+		}
+	}
 	clientsMutex.Unlock()
 
 	scanner := bufio.NewScanner(conn)
@@ -97,7 +108,7 @@ func handleClient(conn net.Conn) {
 
 				if targetUser == "all" {
 					// Broadcast mesajı - tüm kullanıcılara gönder
-					broadcastMsg := fmt.Sprintf("[Broadcast from %s]: %s\n", username, content)
+					broadcastMsg := fmt.Sprintf("\n[Broadcast from %s]: %s\n", username, content)
 					clientsMutex.RLock()
 					for recipient, recipientConn := range clients {
 						if recipient != username { // Kendisine gönderme
@@ -106,7 +117,7 @@ func handleClient(conn net.Conn) {
 					}
 					clientsMutex.RUnlock()
 					// Gönderene onay
-					conn.Write([]byte("✓ Broadcast sent\n"))
+					conn.Write([]byte("\n✓ Broadcast sent\n"))
 				} else {
 					// Normal DM işlemi
 					clientsMutex.RLock()
@@ -114,11 +125,11 @@ func handleClient(conn net.Conn) {
 					clientsMutex.RUnlock()
 
 					if exists {
-						dmMsg := fmt.Sprintf("[DM from %s]: %s\n", username, content)
+						dmMsg := fmt.Sprintf("\n[DM from %s]: %s\n", username, content)
 						targetConn.Write([]byte(dmMsg))
-						conn.Write([]byte(fmt.Sprintf("✓ Sent to %s\n", targetUser)))
+						conn.Write([]byte(fmt.Sprintf("\n✓ Sent to %s\n", targetUser)))
 					} else {
-						conn.Write([]byte(fmt.Sprintf("❌ User %s not found\n", targetUser)))
+						conn.Write([]byte(fmt.Sprintf("\n❌ User %s not found\n", targetUser)))
 					}
 				}
 			}
@@ -129,6 +140,13 @@ func handleClient(conn net.Conn) {
 	// Kullanıcı çıkış yaptığında
 	fmt.Printf("User %s disconnected.\n", username)
 	clientsMutex.Lock()
+	// Kullanıcı çıkış yaptığında diğer kullanıcılara duyur
+	disconnectMsg := fmt.Sprintf("\n🔴 %s left the chat\n", username)
+	for user, client := range clients {
+		if user != username {
+			client.Write([]byte(disconnectMsg))
+		}
+	}
 	delete(clients, username)
 	clientsMutex.Unlock()
 }

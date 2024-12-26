@@ -30,7 +30,7 @@ func main() {
 
 	fmt.Println("Connected to the server. Type your messages below:")
 	fmt.Println("To send DM: [username] message")
-	fmt.Println("To broadcast: [all] message")
+	fmt.Println("To broadcast: [all] message\n")
 
 	// Gelen mesajları dinlemek için goroutine
 	go func() {
