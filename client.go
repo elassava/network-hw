@@ -17,15 +17,34 @@ func main() {
 	defer conn.Close()
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter your username: ")
-	username, _ := reader.ReadString('\n')
-	username = strings.TrimSpace(username)
+	var username string
 
-	// Send the username to the server
-	_, err = conn.Write([]byte(username + "\n"))
-	if err != nil {
-		fmt.Println("Error sending username:", err)
-		return
+	// Username validation loop
+	for {
+		fmt.Print("Enter your username: ")
+		username, _ = reader.ReadString('\n')
+		username = strings.TrimSpace(username)
+
+		// Send the username to the server
+		_, err = conn.Write([]byte(username + "\n"))
+		if err != nil {
+			fmt.Println("Error sending username:", err)
+			return
+		}
+
+		// Wait for server response
+		response, err := bufio.NewReader(conn).ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading server response:", err)
+			return
+		}
+		response = strings.TrimSpace(response)
+
+		if response == "USERNAME_TAKEN" {
+			fmt.Println("Username already taken. Please choose another one.")
+		} else if response == "USERNAME_ACCEPTED" {
+			break
+		}
 	}
 
 	fmt.Println("Connected to the server. Type your messages below:")

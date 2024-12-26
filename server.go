@@ -73,13 +73,30 @@ func listConnectedClients() {
 func handleClient(conn net.Conn) {
 	defer conn.Close()
 
-	reader := bufio.NewReader(conn)
-	username, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("Error reading username:", err)
-		return
+	// Username validation loop
+	var username string
+	for {
+		reader := bufio.NewReader(conn)
+		tempUsername, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading username:", err)
+			return
+		}
+		tempUsername = strings.TrimSpace(tempUsername)
+
+		// Check if username exists
+		clientsMutex.RLock()
+		_, exists := clients[tempUsername]
+		clientsMutex.RUnlock()
+
+		if exists {
+			conn.Write([]byte("USERNAME_TAKEN\n"))
+		} else {
+			username = tempUsername
+			conn.Write([]byte("USERNAME_ACCEPTED\n"))
+			break
+		}
 	}
-	username = username[:len(username)-1]
 
 	// Sadece bağlantı bilgisi göster
 	fmt.Printf("User connected: %s (%s)\n", username, conn.RemoteAddr().String())
